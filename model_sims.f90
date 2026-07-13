@@ -1,11 +1,12 @@
 module models_mod
   use global_params_mod
+  use rng_mod, only: rng_uniform, rng_poisson
   private
   public :: etasi_sim
 
 contains
 
- subroutine etasi_sim(lt_bg, ln_bg, nbg, pm_set, t_sim, lat_sim, lon_sim, mag_sim, nsim, seed)
+ subroutine etasi_sim(lt_bg, ln_bg, nbg, pm_set, t_sim, lat_sim, lon_sim, mag_sim, nsim)
 
    implicit none
 
@@ -15,8 +16,7 @@ contains
    real(8), intent(in) :: pm_set(:)
    real(8), allocatable, intent(out) :: t_sim(:), lat_sim(:), lon_sim(:), mag_sim(:)
    integer, intent(out) :: nsim
-   integer, intent(inout) :: seed
-   
+      
    real(8) :: pp, cc, alpha, K, dd0, gamma, qdec, tau1, dr1, bval, stdv, bg_rate
    real(8), allocatable :: t_all(:), lat_all(:), lon_all(:), mag_all(:)
    real(8), allocatable :: t_tg(:), lat_tg(:), lon_tg(:), mag_tg(:)
@@ -58,21 +58,21 @@ contains
    ! Generate background events
    nbg_tot = int(bg_rate*tlast*(lat_max-lat_min)*(lon_max-lon_min))  ! Number of expected main shocks
    do while (nevent < nbg_tot .and. nevent < max_events)
-     rr=ran2(seed)
+     rr=rng_uniform()
      qq = qmin - log10(1.0D0 - rr) / bval
 
-     jk = 1 + int(ran2(seed) * nbg)
+     jk = 1 + int(rng_uniform() * nbg)
      if(jk.lt.1) jk=1
      if(jk.gt.nbg) jk=nbg
-     lt = lt_bg(jk)+2*0.01*ran2(seed)-0.01
-     ln = ln_bg(jk)+2*0.01*ran2(seed)-0.01
+     lt = lt_bg(jk)+2*0.01*rng_uniform()-0.01
+     ln = ln_bg(jk)+2*0.01*rng_uniform()-0.01
      if (lt <= lat_min .or. lt >= lat_max) cycle
      if (ln <= lon_min .or. ln >= lon_max) cycle
      nevent = nevent + 1
      lat_all(nevent) = lt
      lon_all(nevent) = ln
      mag_all(nevent) = min(qq,qsup)
-     t_all(nevent) = ran2(seed) * tlast
+     t_all(nevent) = rng_uniform() * tlast
      
      if(t_all(nevent).ge.tc)then
        n_tg = n_tg + 1  ! Number of mothers in target region
@@ -88,27 +88,28 @@ contains
      if(mag_all(j) < 0 .or. nevent >= max_events) exit
 
      muaft = K* exp(alpha * (mag_all(j) - qmin))
-     nn = zbqlpoi(muaft, seed)
+     nn = rng_poisson(mu)
      tt0 = t_all(j)
      xx0 = lat_all(j)
      yy0 = lon_all(j)
      
      do i = 1 , nn
-      time = cc * (ran2(seed)**(1.D0 / (1.0D0-pp))) - cc
+      time = cc * (rng_uniform()**(1.D0 / (1.0D0-pp))) - cc
       if (tt0 + time > tlast) then
        goto 77
       endif
       
       ll= dd0 * exp(gamma * (mag_all(j) - qmin))
-      x = ran2(seed)
+      x = rng_uniform()
       deltar = sqrt(ll * (x**(1.0D0 / (1.0D0-qdec))) - ll)!/100.
-      theta = 2.0D0 * ran2(seed) * 3.14159265358979D0
+      theta = 2.0D0 * rng_uniform() * 3.14159265358979D0
       
       if (xx0 + deltar * sin(theta) > lat_min .and. xx0 + deltar * sin(theta) < lat_max) then
        if (yy0 + deltar * cos(theta) > lon_min .and. yy0 + deltar * cos(theta) < lon_max) then
         
+        if (nevent >= max_events) exit
         nevent = nevent + 1    
-        rr = ran2(seed)
+        rr = rng_uniform()
         qq = qmin - log10(1.0D0 - rr) / bval
         mag_all(nevent) = min(qq, qsup)
         t_all(nevent) = tt0 + time
@@ -130,7 +131,6 @@ contains
     
      enddo
 
-     if (nevent >= max_events) exit       ! hard safety break    
     enddo ! end aftershock generation
      
     !! Subroutine that sorts events based in t_sim array
@@ -149,7 +149,7 @@ contains
        if(dr > dr1) cycle
        
        prob = 0.5D0 + 0.5D0 * erf((mag_tg(jj) - mag_tg(ii)) / stdv)
-       if (ran2(seed) > prob) then
+       if (rng_uniform() > prob) then
          keep_event = .false.
          exit
        endif
@@ -199,10 +199,9 @@ contains
   !    - final catalog sorted temporally
   !    - here I also keep post-mainshock aftershocks
   !************************************************************************
-  subroutine etasbc_sim(lt_bg, ln_bg, nbg, pm_set, time_sim, lat_sim, lon_sim, mag_sim, nsim, seed)
+  subroutine etasbc_sim(lt_bg, ln_bg, nbg, pm_set, time_sim, lat_sim, lon_sim, mag_sim, nsim)
     real(8), intent(in) :: lt_bg(nbg),ln_bg(nbg), pm_set(:)
     integer, intent(in) :: nbg
-    integer, intent(inout) :: seed
     real(8), allocatable, intent(out) :: time_sim(:), lat_sim(:), lon_sim(:), mag_sim(:)
     integer, intent(out) :: nsim
   
@@ -287,15 +286,15 @@ contains
       nevent = nevent + 1
       if(nevent.gt.max_events) goto 888
 
-      time = ran2(seed)*final_time
+      time = rng_uniform()*final_time
 
-      jk = 1 + int(ran2(seed)*nevc)
+      jk = 1 + int(rng_uniform()*nevc)
       if(jk.lt.1) jk=1
       if(jk.gt.nevc) jk=nevc
       xx(nevent) = lt_bg(jk)
       yy(nevent) = ln_bg(jk)
 
-      rr = ran2(seed)
+      rr = rng_uniform()
       qq0d = qmin_conn - (1.d0/bb_af)*dlog10(1.d0-rr)
       if(qq0d.gt.qsup) qq0d = qsup
 
@@ -323,28 +322,28 @@ contains
 
         !----------- decide whether the chain continues
         nn=0    
-        if(phi0_conn.ge.ran2(seed)) nn=1
+        if(phi0_conn.ge.rng_uniform()) nn=1
         nn=min(1,nn)
         if(nn.eq.0) goto 205
 
         !----------- connector time
-        time = cc_conn*((ran2(seed))**(1.d0/(1.d0-pp_conn))) &
+        time = cc_conn*((rng_uniform())**(1.d0/(1.d0-pp_conn))) &
                        - cc_conn
         if(tt0+time.gt.final_time) goto 205
 
         !----------- connector space
         ll = DD_conn*dexp(gamma_conn*(qq0d-qmin_conn))
-        x  = ran2(seed)
+        x  = rng_uniform()
         r2 = ll*(x**(1.d0/(1.d0-qdec_conn))) - ll
         if(r2.lt.0.d0) r2 = 0.d0
         deltar = dsqrt(r2)/100.d0
 
-        theta = ran2(seed)*2.d0*pi
+        theta = rng_uniform()*2.d0*pi
         xxxx  = xx0d + deltar*dsin(theta)
         yyyy  = yy0d + deltar*dcos(theta)
 
         !----------- connector magnitude: child >= parent
-        rr   = ran2(seed)
+        rr   = rng_uniform()
         qq0d = qq0d - (1.d0/bb_conn)*dlog10(1.d0-rr)
         if(qq0d.gt.qsup) qq0d = qsup
 
@@ -393,7 +392,7 @@ contains
           goto 700
         endif
 
-        n_af = ZBQLPOI(mu_af, seed)
+        n_af = rng_poisson(muaft)
         if(n_af.le.0) then
           ip = ip + 1
           goto 700
@@ -409,7 +408,7 @@ contains
           if(nevent.gt.max_events) goto 888
 
           !-------------- Omori-Utsu time
-          u_af  = ran2(seed)
+          u_af  = rng_uniform()
           dt_af = cc_af * &
               ( (1.d0-u_af)**(-1.d0/(pp_af-1.d0)) - 1.d0 )
 
@@ -418,16 +417,16 @@ contains
 
           !-------------- aftershock space
           ll = DD_af*dexp(gamma_af*(qq0d-qmin_af))
-          x  = ran2(seed)
+          x  = rng_uniform()
           r2 = ll*(x**(1.d0/(1.d0-qdec_af))) - ll
           if(r2.lt.0.d0) r2 = 0.d0
           deltar = dsqrt(r2)/100.d0
-          theta = ran2(seed)*2.d0*pi
+          theta = rng_uniform()*2.d0*pi
           xxxx  = xx0d + deltar*dsin(theta)
           yyyy  = yy0d + deltar*dcos(theta)
 
           !-------------- aftershock magnitude
-          rr   = ran2(seed)
+          rr   = rng_uniform()
           qq0d = qmin_af - (1.d0/bb_af)*dlog10(1.d0-rr)
           if(qq0d.gt.qsup) qq0d = qsup
 
@@ -476,7 +475,7 @@ contains
        if(dr > dr1) cycle
        
        prob = 0.5D0 + 0.5D0 * erf((mag_tg(jj) - mag_tg(ii)) / stdv)
-       if (ran2(seed) > prob) then
+       if (rng_uniform() > prob) then
          keep_event = .false.
          exit
        endif
@@ -515,74 +514,6 @@ contains
     dr = 2.0D0 * asin(sqrt(a)) * 6370.0D0
     if (dr == 0.0D0) dr = dr0
   end subroutine
-
-  !======================================================================
-  !  Poisson (Knuth)
-  !======================================================================
-  integer function zbqlpoi(mu, seed1) result(npoi)
-    implicit none
-    real(8), intent(in) :: mu
-    integer, intent(inout) :: seed1
-    real(8) :: L, p
-    integer :: k
-
-    if (mu <= 0.0D0) then
-      npoi = 0
-      return
-    end if
-
-    L = exp(-mu)
-    k = 0
-    p = 1.0D0
-
-    do
-      k = k + 1
-      p = p * ran2(seed1)
-      if (p <= L) exit
-    end do
-
-    npoi = k - 1
-  end function zbqlpoi
-
-  real(8) function ran2(idum) result(r)
-    implicit none
-    integer, intent(inout) :: idum
-    integer, parameter :: IM1=2147483563, IM2=2147483399
-    integer, parameter :: IMM1=IM1-1, IA1=40014, IA2=40692
-    integer, parameter :: IQ1=53668, IQ2=52774, IR1=12211, IR2=3791
-    integer, parameter :: NTAB=32, NDIV=1+IMM1/NTAB
-    real(8), parameter :: AM=1.0D0/IM1, EPS=1.2D-7, RNMX=1.0D0-EPS
-    integer, save :: idum2 = 123456789
-    integer, save :: iv(NTAB) = 0, iy = 0
-    integer :: j, k
-
-    if (idum <= 0) then
-      idum = max(-idum, 1)
-      idum2 = idum
-      do j = NTAB + 8, 1, -1
-        k = idum / IQ1
-        idum = IA1 * (idum - k * IQ1) - k * IR1
-        if (idum < 0) idum = idum + IM1
-        if (j <= NTAB) iv(j) = idum
-      end do
-      iy = iv(1)
-    end if
-
-    k = idum / IQ1
-    idum = IA1 * (idum - k * IQ1) - k * IR1
-    if (idum < 0) idum = idum + IM1
-
-    k = idum2 / IQ2
-    idum2 = IA2 * (idum2 - k * IQ2) - k * IR2
-    if (idum2 < 0) idum2 = idum2 + IM2
-
-    j = 1 + iy / NDIV
-    iy = iv(j) - idum2
-    iv(j) = idum
-    if (iy < 1) iy = iy + IMM1
-
-    r = min(AM * real(iy,8), RNMX)
-  end function ran2
 
   subroutine hpsort4(n, time, lat, lon, mag)
    implicit none

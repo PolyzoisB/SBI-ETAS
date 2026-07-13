@@ -203,13 +203,24 @@ contains
    integer :: imin, imax_left, ibest, kmin_shft
    real(8), parameter :: smooth_limit = 0.10D0, min_peak_pct = 0.05D0, max_peak_pct = 0.95D0
 
+   best_idx = 0
+   smoothed = 0.0D0
+
+   if (num_points <= 0) then
+    error stop 'No valid SI points.'
+   end if
+   
    tot_max = k_si(1)
 
    do sw = 2, int(num_points * smooth_limit)
+     if (int(num_points * smooth_limit) < 2) then
+        best_idx = minloc(sindex(1:num_points), dim=1)
+      return
+     end if
      nmx = 0;  nmn = 0;  hw = sw / 2
 
      ! Moving average (correct denominator)
-     do i = 1 + hw, num_points - hw
+     do i = 2 + hw, num_points - hw - 1
        smoothed(i) = 0.0D0;  nsum = 0
        do j = i - hw, i + hw
          smoothed(i) = smoothed(i) + sindex(j);  nsum = nsum + 1

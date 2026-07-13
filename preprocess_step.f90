@@ -135,7 +135,9 @@ program summary_stats
 
     nfore_norm = 0.0D0
     naft_norm = 0.0D0
-
+    nmain = 0
+    flag_main = 0
+    
     if (nev <= 0) return
 
     !call cluster_analysis(ti, lati, loni, magi, nev, bval_fixed, nc_fixed, &

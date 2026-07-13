@@ -11,6 +11,7 @@
 !*************************************************************************************************!
 program sbi_estimation
  use global_params_mod      ! Import global parameters
+ use rng_mod, only: rng_init, rng_uniform
  use models_mod             ! Import ETASI/ETABC simulation subroutine
  use nn_cluster_mod         ! Import clustering statistics subroutine
  use space_time_mag_count_mod ! Import space-time-magnitude count statistics subroutine
@@ -38,7 +39,7 @@ program sbi_estimation
  real(8) :: lt_bg(max_events), ln_bg(max_events)
  real(8) :: bg_rate,bval, x
   ! ETAS Simulations
- integer :: ireal, seed1, i
+ integer :: ireal, i
  ! Monte carlo 
  real(8) :: alim(num_param,num_param),pm_init(num_param)
  real(8) :: cost_fn1, cost_new, param_set(num_param), param_out(num_param)
@@ -58,7 +59,9 @@ program sbi_estimation
     ! stop
  end if
  
- seed1 = -seed
+ !seed1 = -seed
+ !init_seed = seed
+ call rng_init(seed)
  init_seed = seed
  !! Export files for inference step
  !write(monte_carlo_stats, '(A,I0,A)') 'results/cost_fn_', init_seed, 'lr015.txt'
@@ -95,17 +98,18 @@ program sbi_estimation
       end do
     end do
   end do
+  close(102)
 
- !! Import catalog statistics
- open(102,file=input_catalog_stats,status='old')
- read(102,*) bval
- read(102,*) bg_rate
- read(102,*) nc
- read(102,*) br_sup
- read(102,*) br_inf
- read(102,*) n_sup2
- read(102,*) n_inf2
- close(102)
+  !! Import catalog statistics
+  open(103,file=input_catalog_stats,status='old')
+  read(103,*) bval
+  read(103,*) bg_rate
+  read(103,*) nc
+  read(103,*) br_sup
+  read(103,*) br_inf
+  read(103,*) n_sup2
+  read(103,*) n_inf2
+  close(103)
  
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  !       MONTE CARLO ESTIMATION              !
@@ -216,55 +220,55 @@ program sbi_estimation
   param_bounds(1,1) = 1.01
   param_bounds(1,2) = 1.35
   !107 param_set(1) = 1.15 
-  107 param_set(1)= param_bounds(1,1)+ran2(seed1)*(param_bounds(1,2)-param_bounds(1,1))
+  107 param_set(1)= param_bounds(1,1)+rng_uniform()*(param_bounds(1,2)-param_bounds(1,1))
 
   !! c-value (days) !!
   param_bounds(2,1) = 0.001
   param_bounds(2,2) = 0.06
   !param_set(2)=0.02
-  param_set(2) = param_bounds(2,1)+ran2(seed1)*(param_bounds(2,2)-param_bounds(2,1))   
+  param_set(2) = param_bounds(2,1)+rng_uniform()*(param_bounds(2,2)-param_bounds(2,1))   
    
   !! alpha-value (exp) !!
   param_bounds(3,1) = 1.30
   param_bounds(3,2) = 2.80
   !param_set(3)=2.1 
-  param_set(3) = param_bounds(3,1)+ran2(seed1)*(param_bounds(3,2)-param_bounds(3,1))
+  param_set(3) = param_bounds(3,1)+rng_uniform()*(param_bounds(3,2)-param_bounds(3,1))
    
   !! K-value !!
   param_bounds(4,1) = 0.001
   param_bounds(4,2) = 0.37
   !param_set(4) = 0.09 
-  param_set(4) = param_bounds(4,1)+ran2(seed1)*(param_bounds(4,2)-param_bounds(4,1))
+  param_set(4) = param_bounds(4,1)+rng_uniform()*(param_bounds(4,2)-param_bounds(4,1))
    
   !! D-value (deg) !!
   param_bounds(5,1) = -6 ! 0.0000001
   param_bounds(5,2) = -4 ! 0.0001
-  param_set(5)= (-6.+ran2(seed1)*(-4.+6.)) ! param_bounds(5,1)+ran2(seed1)*(param_bounds(5,2)-param_bounds(5,1))
+  param_set(5)= (-6.+rng_uniform()*(-4.+6.)) ! param_bounds(5,1)+rng_uniform()*(param_bounds(5,2)-param_bounds(5,1))
   ! param_set(5)=log10(5E-5) 
    
   !! gamma-value (exp) !!
   param_bounds(6,1) = 0.5
   param_bounds(6,2) = 2.4
   ! param_set(6) = 1.5 
-  param_set(6) = param_bounds(6,1)+ran2(seed1)*(param_bounds(6,2)-param_bounds(6,1))
+  param_set(6) = param_bounds(6,1)+rng_uniform()*(param_bounds(6,2)-param_bounds(6,1))
    
   !! q-exponent !!
   param_bounds(7,1) = 1.05
   param_bounds(7,2) = 2.05
   !param_set(7) = 1.55 
-  param_set(7) = param_bounds(7,1)+ran2(seed1)*(param_bounds(7,2)-param_bounds(7,1))
+  param_set(7) = param_bounds(7,1)+rng_uniform()*(param_bounds(7,2)-param_bounds(7,1))
    
   !!! Aftershock incompleteness !!!
   !! tau-value (sec) !!
   param_bounds(8,1) = 0
   param_bounds(8,2) = 300
   !param_set(8) = 200. 
-  param_set(8) = 0.0d0 ! param_bounds(8,1)+ran2(seed1)*(param_bounds(8,2)-param_bounds(8,1))
+  param_set(8) = 0.0d0 ! param_bounds(8,1)+rng_uniform()*(param_bounds(8,2)-param_bounds(8,1))
 
   !! dr-value (km) !!
   param_bounds(9,1) = 30
   param_bounds(9,2) = 70
-  param_set(9)=50. ! param_bounds(9,1)+ran2(seed1)*(param_bounds(9,2)-param_bounds(9,1))
+  param_set(9)=50. ! param_bounds(9,1)+rng_uniform()*(param_bounds(9,2)-param_bounds(9,1))
  
   !! Bg-rate (1/sec/deg^2) !!
   param_bounds(10,1) = 1E-15
@@ -279,37 +283,37 @@ program sbi_estimation
   ! !! bf-value !!
   ! ! param_bounds(12,1) = 0.5
   ! ! param_bounds(12,2) = 1.5
-  ! param_set(12) = 1.0 ! param_bounds(12,1)+ran2(seed1)*(param_bounds(12,2)-param_bounds(12,1))
+  ! param_set(12) = 1.0 ! param_bounds(12,1)+rng_uniform()*(param_bounds(12,2)-param_bounds(12,1))
 
   ! !! pf-value !!
   ! param_bounds(13,1) = 0.5
   ! param_bounds(13,2) = 1.5
-  ! param_set(13) = 1.5 ! param_bounds(13,1)+ran2(seed1)*(param_bounds(13,2)-param_bounds(13,1))
+  ! param_set(13) = 1.5 ! param_bounds(13,1)+rng_uniform()*(param_bounds(13,2)-param_bounds(13,1))
     
   ! !! cf-value !!
   ! param_bounds(14,1) = 0.5
   ! param_bounds(14,2) = 1.5
-  ! param_set(14) = 0.01 ! param_bounds(14,1)+ran2(seed1)*(param_bounds(14,2)-param_bounds(14,1))
+  ! param_set(14) = 0.01 ! param_bounds(14,1)+rng_uniform()*(param_bounds(14,2)-param_bounds(14,1))
     
   ! !! ddf-value !!
   ! param_bounds(15,1) = 0.5
   ! param_bounds(15,2) = 1.5
-  ! param_set(15) = log10(5E-5) ! param_bounds(15,1)+ran2(seed1)*(param_bounds(15,2)-param_bounds(15,1))
+  ! param_set(15) = log10(5E-5) ! param_bounds(15,1)+rng_uniform()*(param_bounds(15,2)-param_bounds(15,1))
     
   ! !! gammaf-value !!
   ! param_bounds(16,1) = 0.5
   ! param_bounds(16,2) = 1.5
-  ! param_set(16) = 1.0 ! param_bounds(16,1)+ran2(seed1)*(param_bounds(16,2)-param_bounds(16,1))
+  ! param_set(16) = 1.0 ! param_bounds(16,1)+rng_uniform()*(param_bounds(16,2)-param_bounds(16,1))
     
   ! !! qf-value !!
   ! param_bounds(17,1) = 0.5
   ! param_bounds(17,2) = 1.5
-  ! param_set(17) = 1.8 !param_bounds(17,1)+ran2(seed1)*(param_bounds(17,2)-param_bounds(17,1))
+  ! param_set(17) = 1.8 !param_bounds(17,1)+rng_uniform()*(param_bounds(17,2)-param_bounds(17,1))
     
   ! !! phi-value !!
   ! param_bounds(18,1) = 0.
   ! param_bounds(18,2) = 0.4
-  ! param_set(18) = param_bounds(18,1)+ran2(seed1)*(param_bounds(18,2)-param_bounds(18,1))
+  ! param_set(18) = param_bounds(18,1)+rng_uniform()*(param_bounds(18,2)-param_bounds(18,1))
     
   ! Safety check
   do i=1,num_param
@@ -367,8 +371,8 @@ program sbi_estimation
   pm_scaled = (pm - pmmin) / (pmmax - pmmin)
 
   ! Generate a uniform random number u ~ U(0, 1)
-  234 x = ran2(seed1) 
-  u = ran2(seed1)
+  234 x = rng_uniform() 
+  u = rng_uniform()
   !! Reflecting boundaries !!
   delta_scaled = lr*u*sign(1d0,x-0.5)
   pm_scaled_new = pm_scaled + delta_scaled
@@ -426,7 +430,7 @@ program sbi_estimation
    !! Compute average summary statistics !!
    do kloop=1,K1
      !15 call etams_sim_cat(lat_bg,lon_bg,param_set,t_sim,lat_sim,lon_sim,mag_sim,nev_sim)
-     15 call etasi_sim(lat_bg,lon_bg, nbg, param_set,t_sim,lat_sim,lon_sim,mag_sim,nev_sim,seed1)
+     15 call etasi_sim(lat_bg,lon_bg, nbg, param_set,t_sim,lat_sim,lon_sim,mag_sim,nev_sim)
      if(nev_sim.gt.n_sup2.or.nev_sim.lt.n_inf2)then
       nout = nout + 1 
       if(nout.gt.10*K1)then
@@ -520,6 +524,8 @@ program sbi_estimation
 
     nfore_norm = 0.0D0
     naft_norm = 0.0D0
+    nmain = 0
+    flag_main = 0
 
     if (nev <= 0) return
 
@@ -678,7 +684,7 @@ program sbi_estimation
 
    ! accept/reject based on cost
    !ratio = cost_fn1 / cost_fn
-   !u = ran2(seed1)
+   !u = rng_uniform()
    !if(u.lt.ratio) then    ! Metropolis-Hastings acceptance
    if (cost_fn < cost_fn1) then
       cost_fn_old = cost_fn1
