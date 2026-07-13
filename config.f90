@@ -13,15 +13,18 @@ module global_params_mod
   character(len=*), parameter :: final_results = 'results/final_results_pavl_v4.txt'
   character(len=*), parameter :: rescaled_distances = 'results/rescaled_distances_pavl_v4.txt'
 
-  ! Export the foreshock and aftershock summary statistics
-  character(len=*), parameter :: input_aft_summary_stats = 'true_aft_sum_stats.txt'
-  character(len=*), parameter :: input_fore_summary_stats = 'results/sc_mc2.5/true_fore_sum_stats.txt'
+  !! Export the foreshock and aftershock summary statistics !!
+  character(len=*), parameter :: input_aft_summary_stats = 'results/true_aft_sum_stats.txt'
+  character(len=*), parameter :: input_fore_summary_stats = 'results/true_fore_sum_stats.txt'
 
-  character(len=*), parameter :: input_catalog_stats = 'results/sc_mc2.5/true_catalog_stats.txt'
-  character(len=*), parameter :: true_model_stats = 'results/sc_mc2.5/true_model_stats.txt'
-  character(len=*), parameter :: bg_coords = 'datasets/bg_coords_sc_mc3.0.txt'
-  character(len=*), parameter :: bg_coords_1 = '/home/eugenio/Polyzois/etas/etas_simulation/datasets/cat_main_m2.dat'
-  character(len=*), parameter :: bg_coords_2 = '/home/eugenio/Polyzois/etas/etas_simulation/datasets/cat_main_m4.dat'
+  !! Export catalog-statistics !!
+  character(len=*), parameter :: input_catalog_stats = 'results/true_catalog_stats.txt'
+  character(len=*), parameter :: true_model_stats = 'results/true_model_stats.txt'
+
+  !! Export background coordinates !!
+  character(len=*), parameter :: bg_coords = 'datasets/bg_coords.txt'
+  ! character(len=*), parameter :: bg_coords_1 = '/home/eugenio/Polyzois/etas/etas_simulation/datasets/cat_main_m2.dat'
+  ! character(len=*), parameter :: bg_coords_2 = '/home/eugenio/Polyzois/etas/etas_simulation/datasets/cat_main_m4.dat'
 
   integer, parameter :: max_events = 1500000
     
@@ -37,7 +40,7 @@ module global_params_mod
   ! Metric parameters (Baiesi–Paczuski)
   !==============================
   real(8), parameter :: df   = 1.6d0     ! fractal dimension
-  ! real(8), parameter :: bval = 1.0d0     ! Gutenberg–Richter b-value
+  real(8), parameter :: bval = 1.0d0     ! Gutenberg–Richter b-value
 
   !==============================
   ! Smoothing parameters

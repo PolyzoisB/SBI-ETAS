@@ -25,12 +25,12 @@ program summary_stats
  real(8), allocatable :: time_true(:), lat_true(:), lon_true(:), mag_true(:)
  real(8), allocatable :: lt_bg_est(:), ln_bg_est(:)
  integer :: ii,nbg,ntrue
- real(8) :: bg_rate,bval, tr_to_tot, br_sup, br_inf, n_sup, n_inf, total_time
+ real(8) :: bg_rate, bval_est, tr_to_tot, br_sup, br_inf, n_sup, n_inf, total_time
  
  ! Initialize the spatial intervals
  thspace(1:5) = (/3.0D0, 10.0D0, 20.0D0, 40.0D0, 0.0D0/)
 
- call load_input_catalog(input_catalog, time_true, lat_true, lon_true, mag_true, ntrue, bval)
+ call load_input_catalog(input_catalog, time_true, lat_true, lon_true, mag_true, ntrue, bval_est)
  allocate(lt_bg_est(ntrue), ln_bg_est(ntrue))
  
  print*,'Number of events in the catalog: ',ntrue,' b-value: ',bval
@@ -70,10 +70,10 @@ program summary_stats
 
  contains
  
- subroutine load_input_catalog(path, time, lat, lon, mag, ncat, bval)
+ subroutine load_input_catalog(path, time, lat, lon, mag, ncat, bval_est)
     character(len=*), intent(in) :: path
     real(8), allocatable, intent(out) :: time(:), lat(:), lon(:), mag(:)
-    real(8), intent(out) :: bval
+    real(8), intent(out) :: bval_est
     integer, intent(out) :: ncat
 
     real(8) :: t, lt, ln, dep, mg, mn_mag
@@ -91,6 +91,7 @@ program summary_stats
 
     open(11, file=path, status='old')
     i = 0
+    mn_mag = 0.0d0
     do
       read(11, *, end=101) t, lt, ln, dep, mg
       if (mg < mc) cycle
@@ -104,7 +105,7 @@ program summary_stats
     101 close(11)
     mn_mag = mn_mag / (ncat*1.)
     ! MLE b-value estimation
-    bval = log10(exp(1.))/(mn_mag-mc)
+    bval_est = log10(exp(1.))/(mn_mag-mc)
   end subroutine load_input_catalog
 
   subroutine compute_norm_stats(time, lat, lon, mag, ncat, bval_fixed, nc_fixed, thspace_in, &
@@ -170,8 +171,7 @@ program summary_stats
       end do
     end do
     close(102)
-    pause
-    
+        
     open(103, file=path_f, status='replace')
     do iqmax = 1, ncmain
       do imfor = 1, ncmagnf
