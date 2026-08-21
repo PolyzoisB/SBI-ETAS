@@ -26,6 +26,7 @@ module global_params_mod
   ! character(len=*), parameter :: bg_coords_1 = '/home/eugenio/Polyzois/etas/etas_simulation/datasets/cat_main_m2.dat'
   ! character(len=*), parameter :: bg_coords_2 = '/home/eugenio/Polyzois/etas/etas_simulation/datasets/cat_main_m4.dat'
 
+  !! Allocation variable !!
   integer, parameter :: max_events = 1500000
     
   !==============================
@@ -35,17 +36,13 @@ module global_params_mod
   real(8), parameter :: pthmin = 1.0D-18
   real(8), parameter :: pthmax = 1.0D15
   real(8), parameter :: bin0 = 0.05D0
+  integer, parameter :: max_si_points = 10000
 
   !==============================
   ! Metric parameters (Baiesi–Paczuski)
   !==============================
   real(8), parameter :: df   = 1.6d0     ! fractal dimension
   real(8), parameter :: bval = 1.0d0     ! Gutenberg–Richter b-value
-
-  !==============================
-  ! Smoothing parameters
-  !==============================
-  integer, parameter :: max_si_points = 10000
     
   !! INFERENCE STEP !!
   !! Number of parameters to estimate
@@ -87,6 +84,8 @@ module global_params_mod
   !!!!!!! OTHER PARAMETERS !!!!!!
   !! Magnitude boundaries for cluster analysis (approximation)
   real(8), parameter :: mmain = 4.0, mcl = 3.5
+  !! Temporal filtering parameters on events history
+  real(8), parameter :: c1 = 50.0D0, c2 = 1.4D0
   
   !! Other parameters
   real(8), parameter :: pr=3.14159/180.
@@ -95,6 +94,6 @@ module global_params_mod
   integer, parameter :: K1 = 30                 !! Average statistics
   integer, parameter :: conv_thr = 60           !! Consecutive stable iterations for convergence
   ! integer, parameter :: seed = 5099           ! Seed for random number generator
-  real(8) :: lr = 0.1d0                        !! Learning rate for parameters update
+  real(8) :: lr = 0.1d0                        !! Learning rate for parameter update
 
 end module global_params_mod

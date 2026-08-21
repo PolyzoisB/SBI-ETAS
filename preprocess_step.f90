@@ -1,8 +1,8 @@
 ! ************************************************************************************************!
 !    Program with steps                                                                           !
-!    1. Give as input the earthquake catalog format [elapsed time, lat, lon, dep, mag]            !
+!    1. Give as input the earthquake catalog with format [elapsed time, lat, lon, dep, mag]       !
 !    2. Compute Susceptibility index, bg-rate and b-value                                         !
-!    4. Compute normalized foreshock and aftershock stats                                         !
+!    4. Compute normalized foreshock and aftershock summary statistics                            !
 !    4. Export i) Input catalog stats ii) Input summary statistics                                ! 
 !*************************************************************************************************!
 program summary_stats
@@ -33,11 +33,12 @@ program summary_stats
  call load_input_catalog(input_catalog, time_true, lat_true, lon_true, mag_true, ntrue, bval_est)
  allocate(lt_bg_est(ntrue), ln_bg_est(ntrue))
  
- print*,'Number of events in the catalog: ',ntrue,' b-value: ',bval
-
+ print*,'Number of events in the catalog: ',ntrue,' b-value (MLE): ',bval_est
+ 
  ! Compute Susceptibility Index and background rate
  call si_threshold(time_true, lat_true, lon_true, mag_true,&
                     ntrue, nn_thr, sim_thr, nbg, bval, lt_bg_est, ln_bg_est)
+
  print*, ' Estimated background events: ', nbg
  ! Export the background coordinates
  open(bg_unit,file=bg_coords,status='replace')
@@ -106,6 +107,7 @@ program summary_stats
     mn_mag = mn_mag / (ncat*1.)
     ! MLE b-value estimation
     bval_est = log10(exp(1.))/(mn_mag-mc)
+
   end subroutine load_input_catalog
 
   subroutine compute_norm_stats(time, lat, lon, mag, ncat, bval_fixed, nc_fixed, thspace_in, &

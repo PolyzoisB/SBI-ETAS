@@ -18,7 +18,7 @@ contains
     do i = 2, n
       nij_min = 1.0D12;  jmin = 0
       ! Add i-1 to active list
-      tmax = time(i-1) + 50.0D0 * (10.0D0**(1.4D0 * mag(i-1)))
+      tmax = time(i-1) + c1 * (10.0D0**(c2 * mag(i-1)))
       if (tmax > time(i)) then
         cnt = cnt + 1
         nn_list(cnt) = i - 1
