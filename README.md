@@ -16,10 +16,10 @@ The code is written in Fortran and is organized into two main stages:
 ```text
 .
 ├── config.f90                  # Global configuration, file paths, thresholds, model constants
-├── si_declustering.f90          # Susceptibility-index / nearest-neighbor declustering tools
+├── si_declustering.f90          # Susceptibility-index / nearest-neighbor declustering 
 ├── nn_cluster.f90               # Nearest-neighbor clustering and mainshock identification
 ├── space_time_mag_count.f90     # Space-time-magnitude foreshock/aftershock count statistics
-├── model_sims.f90               # ETASI catalog simulation routines
+├── model_sims.f90               # ETASI catalog simulation routine
 ├── preprocess_step.f90          # Preprocessing executable program
 ├── sbi_estimation.f90           # SBI / likelihood-free inference executable program
 ├── run_preprocess.sh            # Compile and run preprocessing
@@ -52,7 +52,7 @@ The preprocessing step:
    - the number of background events,
    - the background rate,
    - background-event coordinates.
-5. Identifies mainshock classes and computes normalized aftershock and foreshock summary statistics.
+5. Identifies mainshocks and computes normalized aftershock and foreshock summary statistics of the input earthquake catalog.
 6. Exports the catalog-level quantities and summary statistics used by the inference step.
 
 ### Inference stage
@@ -66,18 +66,18 @@ The inference step:
    - nearest-neighbor threshold,
    - branching-ratio bounds,
    - accepted catalog-size bounds.
-3. Initializes ETASI parameters under physical constraints, including a branching-ratio constraint.
+3. Initializes ETASI parameters under constraints, including a branching-ratio constraint.
 4. Repeatedly simulates `K1` ETASI catalogs for each proposed parameter set.
 5. Computes the same summary statistics for each simulated catalog.
 6. Averages simulated summaries and compares them with the observed summaries using a relative discrepancy cost.
 7. Updates parameter blocks and accepts proposals that reduce the cost.
-8. Exports the final parameter set, initial parameter set, final cost, elapsed time, and number of iterations.
+8. Exports the final parameter set, initial parameter set, final cost, elapsed time, and number of completed iterations.
 
 ---
 
 ## Model parameters
 
-The inference vector contains 11 parameters:
+The inference vector contains 12 parameters:
 
 | Index | Name | Meaning | Status in current code |
 |---:|---|---|---|
@@ -85,13 +85,14 @@ The inference vector contains 11 parameters:
 | 2 | `c` | Omori-Utsu time offset, in days in the parameter vector | estimated |
 | 3 | `alpha` | Magnitude-productivity exponent | estimated |
 | 4 | `K` | Productivity scaling parameter | estimated |
-| 5 | `d` | Spatial scale parameter, stored as `log10(d)` | estimated |
+| 5 | `d` | Spatial scale parameter | estimated |
 | 6 | `gamma` | Magnitude dependence of spatial scale | estimated |
 | 7 | `q` | Spatial-kernel decay exponent | estimated |
-| 8 | `tau-ETASI` | Short-term incompleteness time window, seconds | currently fixed at 0 s in initialization/update blocks |
+| 8 | `tau-ETASI` | Short-term incompleteness time window, seconds | estimated |
 | 9 | `dr-ETASI` | Short-term incompleteness spatial window, km | currently fixed at 50 km |
-| 10 | `bg-rate` | Background rate, events/sec/deg² | fixed from preprocessing |
+| 10 | `bg-rate` | Background rate, events s⁻¹ deg⁻² | fixed from preprocessing |
 | 11 | `b-value` | Gutenberg-Richter b-value | fixed from preprocessing |
+| 12 | `stdv`  | Short-term incompleteness standard deviation of the acceptance probability distribution | currently fixed at 0.4 |
 
 The temporal parameter `c` is stored in days in the parameter vector and converted to seconds inside the simulator.
 
@@ -112,12 +113,15 @@ Important configuration blocks include:
   - `bg_coords`
 
 - **Magnitude and domain settings**
-  - `mc`: magnitude cutoff
-  - `msup`: upper magnitude bound
-  - `lat_min`, `lat_max`, `lon_min`, `lon_max`: spatial domain
-  - `tc`: auxiliary time window excluded from the target catalog
-  - `tlast`: total simulated time window
-
+  - `m0`: lower magnitude bound for auxiliary catalog simulation
+  - `mc`: target-catalog magnitude cutoff
+  - `msup`: upper simulated magnitude
+  - `lat_min_0`, `lat_max_0`, `lon_min_0`, `lon_max_0`: auxiliary spatial domain
+  - `lat_min`, `lat_max`, `lon_min`, `lon_max`: target spatial domain
+  - `t0`: simulation start time
+  - `tc`: end of the auxiliary period and start of the target period
+  - `tlast`: simulation end time
+ 
 - **Summary-statistic bins**
   - `thtime`: aftershock time windows
   - `thml`: aftershock magnitude bins
@@ -165,7 +169,7 @@ where:
 - `elapsed_time` is in seconds,
 - `latitude` and `longitude` are in decimal degrees,
 - `depth` is read but not used in the current summary statistics,
-- `magnitude` is used for catalog filtering, clustering, and ETASI simulation matching.
+- `magnitude` 
 
 The default catalog path is set in `config.f90`:
 
@@ -183,7 +187,7 @@ Before running, make sure that the directories referenced in `config.f90` exist.
 
 ```bash
 mkdir -p datasets
-mkdir -p results/sc_mc2.5
+mkdir -p results
 ```
 
 Adjust the directory names if your `config.f90` uses different paths.
@@ -209,11 +213,11 @@ then runs the preprocessing executable and removes temporary object and module f
 Expected preprocessing outputs include:
 
 ```text
-true_aft_sum_stats.txt
-results/sc_mc2.5/true_fore_sum_stats.txt
-results/sc_mc2.5/true_catalog_stats.txt
-results/sc_mc2.5/true_model_stats.txt
-datasets/bg_coords_sc_mc3.0.txt
+results/true_aft_sum_stats.txt
+results/true_fore_sum_stats.txt
+results/true_catalog_stats.txt
+results/true_model_stats.txt
+datasets/bg_coords.txt
 ```
 
 The exact paths depend on the values set in `config.f90`.
@@ -239,7 +243,7 @@ then runs the SBI/ETASI inference executable and removes temporary object and mo
 The inference output is written to:
 
 ```text
-results/sc_mc2.5/params_<seed>.txt
+results/params_<seed>.txt
 ```
 
 where `<seed>` is the seed read by `sbi_estimation.f90`. The provided shell script does not pass a seed explicitly, so the code uses its internal default seed unless you run the executable manually with a command-line argument.
