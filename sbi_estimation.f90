@@ -10,21 +10,18 @@
 !    8. Export i) Estimated parameter set of ETAS/ETAMS ii) Cost function                         !
 !*************************************************************************************************!
 program sbi_estimation
- use global_params_mod      ! Import global parameters
+ use iso_fortran_env, only: real64
+ use global_params_mod        ! Import global parameters
  use rng_mod, only: rng_init, rng_uniform
- use models_mod             ! Import ETASI/ETABC simulation subroutine
- use nn_cluster_mod         ! Import clustering statistics subroutine
+ use models_mod               ! Import ETASI simulation subroutine
+ use nn_cluster_mod           ! Import clustering statistics subroutine
  use space_time_mag_count_mod ! Import space-time-magnitude count statistics subroutine
  implicit none
  !! COMPUTATIONAL TIME !!
  real :: elapsed_time
  integer :: clock_rate,start_time, end_time
- ! Export the Monte Carlo statistics
- character(len=200) :: monte_carlo_stats 
- ! Export initial parameters
+ ! Export parameters
  character(len=200) :: params_conv 
- ! Export the Monte Carlo sampling
- character(len=200) :: mc_sampling
  !! CLUSTER ANALYSIS !!
  ! Spatial intervals in km aft/for statistics
  real(8) :: thspace(ncspace)
@@ -36,8 +33,8 @@ program sbi_estimation
  real(8) :: f_nfore, f_nmainf, f_mmainf, f_tf, f_sf, f_mf
  real(8) :: f_naft, f_nmain, f_mmain, f_t, f_s, f_m
  ! Catalog variables
- real(8) :: lt_bg(max_events), ln_bg(max_events)
- real(8) :: bg_rate,bval, x
+ real(8), allocatable :: lt_bg(:), ln_bg(:)
+ real(8) :: bg_rate , b_val
   ! ETAS Simulations
  integer :: ireal, i
  ! Monte carlo 
@@ -50,27 +47,22 @@ program sbi_estimation
  character(len=20) :: name(num_param)
  character(len=32) :: arg
  integer :: ios,seed,init_seed,nbg
+ 
+ !! Initialize the spatial intervals !!
+ thspace(1:5) = (/3.0D0, 10.0D0, 20.0D0, 40.0D0, 0.0d0/) ! in km
 
  call get_command_argument(1, arg)   ! read first command-line argument
  read(arg, *, iostat=ios) seed
  if (ios /= 0) then
-    seed = 4045  
-    print *, "Error: could not read seed from command line."
-    ! stop
+    seed = 4000  
+    print *, "Set seed for random generator 4000: could not read seed from command line."
  end if
  
- !seed1 = -seed
- !init_seed = seed
  call rng_init(seed)
  init_seed = seed
  !! Export files for inference step
- !write(monte_carlo_stats, '(A,I0,A)') 'results/cost_fn_', init_seed, 'lr015.txt'
- write(params_conv, '(A,I0,A)') 'results/sc_mc2.5/params_', init_seed,'.txt'
- !write(mc_sampling, '(A,I0,A)') 'results/mc_sampling_', init_seed, 'lr015.txt'
-
- !! Initialize the spatial intervals !!
- thspace(1:5) = (/3.0D0, 10.0D0, 20.0D0, 40.0D0, 0.0d0/) ! in km
-
+ write(params_conv, '(A,I0,A)') 'results/params_', init_seed,'.txt'
+ 
  call import_bg_catalog(bg_coords, lt_bg, ln_bg, nbg)
  
  !! Import true foreshock and aftershock statistics
@@ -102,7 +94,7 @@ program sbi_estimation
 
   !! Import catalog statistics
   open(103,file=input_catalog_stats,status='old')
-  read(103,*) bval
+  read(103,*) b_val
   read(103,*) bg_rate
   read(103,*) nc
   read(103,*) br_sup
@@ -116,7 +108,7 @@ program sbi_estimation
  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  
  !! INITIALIZE PARAMETERS !!
- 106 call param_gen(param_set,alim,name,bg_rate,bval)
+ 106 call param_gen(param_set,alim,name,bg_rate,b_val)
  pm_init = param_set
  
  call costfn(lt_bg,ln_bg,param_set,naft_true,nfore_true,cost_fn1,flag_upd)
@@ -128,31 +120,23 @@ program sbi_estimation
     go to 106
  endif
 
- !! MONTE CARLO Sampling !!
- !  open(60,file=monte_carlo_stats,status='replace') 
- !  open(61,file=mc_sampling,status='replace')
- !  do i=1,num_param
- !      write(60,*)0,0,0,name(i),param_set(i),0,0
- !  enddo
- 
-
  ! Start the timer
  call system_clock(start_time)
 
  itc = 0
  stable_count = 0
- do ireal=1,K0 
+ do ireal = 1,K0 
   print*,"Monte carlo iteration: ", ireal
   flush(6)
   cost_new = cost_fn1
   itc = itc + 1
-  call update_block([1,2], alim, param_set, name, itc, cost_fn1, param_out)
+  call update_block([1,2,8], alim, param_set, cost_fn1, param_out)
   param_set = param_out
   itc = itc + 1
-  call update_block([3,4], alim, param_set, name, itc, cost_fn1, param_out)
+  call update_block([3,4,8], alim, param_set, cost_fn1, param_out)
   param_set = param_out
   itc = itc + 1
-  call update_block([5,6,7], alim, param_set, name, itc, cost_fn1, param_out)
+  call update_block([5,6,7], alim, param_set, cost_fn1, param_out)
   param_set = param_out
        
   if (abs(cost_new - cost_fn1) < epsilon) then
@@ -163,14 +147,11 @@ program sbi_estimation
   print*,"Stable count: ", stable_count, " after iteration: ", ireal
   print*,"Current cost: ", cost_fn1
   flush(6)
-  ! if (stable_count > int(conv_thr/2))flag_check = 1 ! switch to different learning rate
   if (stable_count >= conv_thr) then
     print*, "Stopping early at iteration ", ireal, " due to convergence."
     exit
   endif
  enddo 
- !close(60)
- !close(61)
  
  ! Stop the timer
  call system_clock(end_time, clock_rate)
@@ -184,47 +165,87 @@ program sbi_estimation
 
  contains
  
- subroutine import_bg_catalog(path, lt_bg, ln_bg, nbg)
-  character(len=*), intent(in) :: path
-  real(8), intent(out) :: lt_bg(:), ln_bg(:)
-  integer, intent(out) :: nbg
+ subroutine import_bg_catalog(path, lat_bg, lon_bg, nbg)
+   implicit none
+   character(len=*), intent(in) :: path
+   real(8), allocatable, intent(out) :: lat_bg(:), lon_bg(:)
+   integer, intent(out) :: nbg
 
-  real(8) :: x, y
-  integer :: ii, jj
+   integer :: unit_number
+   integer :: ios
+   integer :: i
+   real(8) :: lat_value, lon_value
 
-  jj = 0
-  open(35,file=path,status='old')
-  do ii=1,max_events
-    read(35,*,end=199)x,y
-    if(x.gt.lat_min.and.x.lt.lat_max)then
-      if(y.gt.lon_min.and.y.lt.lon_max)then
-        jj = jj + 1
-        lt_bg(jj) = x
-        ln_bg(jj) = y
+   ! First pass: count the number of coordinate pairs.
+   open(newunit=unit_number, file=path, status='old', action='read', iostat=ios)
+
+   if (ios /= 0) then
+      print *, 'ERROR: cannot open background catalog: ', trim(path)
+      error stop
+   end if
+
+   nbg = 0
+   do
+      read(unit_number, *, iostat=ios) lat_value, lon_value
+
+      if (ios < 0) exit
+
+      if (ios > 0) then
+        close(unit_number)
+        print *, 'ERROR: malformed row in background catalog: ', &
+               trim(path)
+        error stop
       endif
-    endif
-  enddo
-  199 close(35)
-  nbg = jj
+      
+      nbg = nbg + 1
+   end do
+
+   if (nbg == 0) then
+      close(unit_number)
+      print *, 'ERROR: background catalog contains no coordinates: ', &
+               trim(path)
+      error stop
+   end if
+
+   ! Allocate only the required amount of memory.
+   allocate(lat_bg(nbg), lon_bg(nbg), stat=ios)
+
+   ! Second pass: read the coordinates.
+   rewind(unit_number)
+
+   do i = 1, nbg
+      read(unit_number, *, iostat=ios) lat_bg(i), lon_bg(i)
+
+      if (ios /= 0) then
+         close(unit_number)
+         print *, 'ERROR: failed while reading background row ', i
+         error stop
+      end if
+   end do
+
+   close(unit_number)
+
  end subroutine import_bg_catalog
- 
- subroutine param_gen(param_set,param_bounds,name,bg_rate,bval)
+
+ subroutine param_gen(param_set,param_bounds,name,bg_rate,b_val)
   implicit none
   real(8), intent(out) :: param_set(num_param),param_bounds(num_param,num_param)
   character (LEN=20):: name(num_param)
-  real(8), intent(in) :: bg_rate, bval
+  real(8), intent(in) :: bg_rate, b_val
   real(8) :: n_branch,pmmax,pmmin
   integer :: i  
    
   !! p-value !!
   param_bounds(1,1) = 1.01
-  param_bounds(1,2) = 1.35
+  param_bounds(1,2) = 1.40
   !107 param_set(1) = 1.15 
   107 param_set(1)= param_bounds(1,1)+rng_uniform()*(param_bounds(1,2)-param_bounds(1,1))
 
+  print*, n_branch
+
   !! c-value (days) !!
   param_bounds(2,1) = 0.001
-  param_bounds(2,2) = 0.06
+  param_bounds(2,2) = 0.1
   !param_set(2)=0.02
   param_set(2) = param_bounds(2,1)+rng_uniform()*(param_bounds(2,2)-param_bounds(2,1))   
    
@@ -236,15 +257,14 @@ program sbi_estimation
    
   !! K-value !!
   param_bounds(4,1) = 0.001
-  param_bounds(4,2) = 0.37
+  param_bounds(4,2) = 0.50
   !param_set(4) = 0.09 
   param_set(4) = param_bounds(4,1)+rng_uniform()*(param_bounds(4,2)-param_bounds(4,1))
    
   !! D-value (deg) !!
-  param_bounds(5,1) = -6 ! 0.0000001
-  param_bounds(5,2) = -4 ! 0.0001
-  param_set(5)= (-6.+rng_uniform()*(-4.+6.)) ! param_bounds(5,1)+rng_uniform()*(param_bounds(5,2)-param_bounds(5,1))
-  ! param_set(5)=log10(5E-5) 
+  param_bounds(5,1) = 1E-7
+  param_bounds(5,2) = 1E-4
+  param_set(5)= (param_bounds(5,1)+rng_uniform()*(param_bounds(5,2)-param_bounds(5,1)))
    
   !! gamma-value (exp) !!
   param_bounds(6,1) = 0.5
@@ -254,7 +274,7 @@ program sbi_estimation
    
   !! q-exponent !!
   param_bounds(7,1) = 1.05
-  param_bounds(7,2) = 2.05
+  param_bounds(7,2) = 2.5
   !param_set(7) = 1.55 
   param_set(7) = param_bounds(7,1)+rng_uniform()*(param_bounds(7,2)-param_bounds(7,1))
    
@@ -263,58 +283,28 @@ program sbi_estimation
   param_bounds(8,1) = 0
   param_bounds(8,2) = 300
   !param_set(8) = 200. 
-  param_set(8) = 0.0d0 ! param_bounds(8,1)+rng_uniform()*(param_bounds(8,2)-param_bounds(8,1))
+  param_set(8) = param_bounds(8,1)+rng_uniform()*(param_bounds(8,2)-param_bounds(8,1))
 
   !! dr-value (km) !!
   param_bounds(9,1) = 30
   param_bounds(9,2) = 70
-  param_set(9)=50. ! param_bounds(9,1)+rng_uniform()*(param_bounds(9,2)-param_bounds(9,1))
+  param_set(9) = 50. ! param_bounds(9,1)+rng_uniform()*(param_bounds(9,2)-param_bounds(9,1))
  
+  !! stdv-value !!
+  param_bounds(12,1) = 0.1 
+  param_bounds(12,2) = 0.6
+  param_set(12) = 0.4
+
   !! Bg-rate (1/sec/deg^2) !!
   param_bounds(10,1) = 1E-15
   param_bounds(10,2) = 1E-1
-  param_set(10)=bg_rate   
+  param_set(10) = bg_rate   
    
   !! b-value !!
   param_bounds(11,1) = 0.5
   param_bounds(11,2) = 1.5
-  param_set(11) = bval 
-
-  ! !! bf-value !!
-  ! ! param_bounds(12,1) = 0.5
-  ! ! param_bounds(12,2) = 1.5
-  ! param_set(12) = 1.0 ! param_bounds(12,1)+rng_uniform()*(param_bounds(12,2)-param_bounds(12,1))
-
-  ! !! pf-value !!
-  ! param_bounds(13,1) = 0.5
-  ! param_bounds(13,2) = 1.5
-  ! param_set(13) = 1.5 ! param_bounds(13,1)+rng_uniform()*(param_bounds(13,2)-param_bounds(13,1))
-    
-  ! !! cf-value !!
-  ! param_bounds(14,1) = 0.5
-  ! param_bounds(14,2) = 1.5
-  ! param_set(14) = 0.01 ! param_bounds(14,1)+rng_uniform()*(param_bounds(14,2)-param_bounds(14,1))
-    
-  ! !! ddf-value !!
-  ! param_bounds(15,1) = 0.5
-  ! param_bounds(15,2) = 1.5
-  ! param_set(15) = log10(5E-5) ! param_bounds(15,1)+rng_uniform()*(param_bounds(15,2)-param_bounds(15,1))
-    
-  ! !! gammaf-value !!
-  ! param_bounds(16,1) = 0.5
-  ! param_bounds(16,2) = 1.5
-  ! param_set(16) = 1.0 ! param_bounds(16,1)+rng_uniform()*(param_bounds(16,2)-param_bounds(16,1))
-    
-  ! !! qf-value !!
-  ! param_bounds(17,1) = 0.5
-  ! param_bounds(17,2) = 1.5
-  ! param_set(17) = 1.8 !param_bounds(17,1)+rng_uniform()*(param_bounds(17,2)-param_bounds(17,1))
-    
-  ! !! phi-value !!
-  ! param_bounds(18,1) = 0.
-  ! param_bounds(18,2) = 0.4
-  ! param_set(18) = param_bounds(18,1)+rng_uniform()*(param_bounds(18,2)-param_bounds(18,1))
-    
+  param_set(11) = b_val 
+  
   ! Safety check
   do i=1,num_param
     pmmin = param_bounds(i,1)
@@ -341,16 +331,10 @@ program sbi_estimation
   name(9) = 'dr-ETASI'
   name(10) = 'bg-rate'
   name(11) = 'b-value'
-  ! name(12) = 'bf-value'
-  ! name(13) = 'pf-value'
-  ! name(14) = 'cf-value'
-  ! name(15) = 'df-value'
-  ! name(16) = 'gammaf-value'
-  ! name(17) = 'qf-value'
-  ! name(18) = 'phi-value'
-   
+  name(12) = 'stdv'
+
   ! Branching ratio condition
-  call branch_rt(param_set(4),param_set(3),bval,n_branch)   
+  call branch_rt(param_set(4),param_set(3),b_val,n_branch)   
   if(n_branch.ge.br_sup.or.n_branch.lt.br_inf)go to 107
   print*,"Initial branching ratio: ",n_branch
  end subroutine param_gen
@@ -365,7 +349,7 @@ program sbi_estimation
   REAL(8), INTENT(OUT) :: pm_new   ! Updated parameter
 
   ! Local variables
-  REAL(8) :: pm_scaled, delta_scaled, u, pm_scaled_new
+  REAL(8) :: pm_scaled, delta_scaled, u, x, pm_scaled_new
   
   ! Normalize current value to [0, 1]
   pm_scaled = (pm - pmmin) / (pmmax - pmmin)
@@ -407,13 +391,14 @@ program sbi_estimation
    real(8), intent(in) :: param_set(num_param)
    real(8), intent(in) :: true_stats_aft(ncmagn,nctime,ncspace,ncmain), true_stats_fore(ncmagnf,nctimef,ncspacef,ncmain)
    real(8), intent(out) :: cost_fn
+   integer, intent(out) :: flag_upd
    
    integer :: kloop
    real(8), allocatable :: t_sim(:),lat_sim(:),lon_sim(:),mag_sim(:)
    real(8) :: nfore_sim(ncmagnf,nctimef,ncspacef,ncmain),naft_sim(ncmagn,nctime,ncspace,ncmain)
    real(8) :: naft_sum(ncmagn,nctime,ncspace,ncmain),nfore_sum(ncmagnf,nctimef,ncspacef,ncmain)
-   real(8) :: nevent_avg, bval
-   integer :: iqmax,imfor,itime,ispace,nev_sim,nevent_sum, nout, flag_upd
+   real(8) :: nevent_avg, b_val
+   integer :: iqmax,imfor,itime,ispace,nev_sim,nevent_sum, nout
    integer :: nmain_sims(ncmain), nmain(ncmain), flag_main(ncmain)
    
    !!!!!!!! MODEL SIMULATIONS !!!!!!!!!!!!!!!!!!
@@ -425,12 +410,11 @@ program sbi_estimation
    nevent_sum = 0
    nmain_sims = 0
    nout = 0
-   bval = param_set(11) ! b-value
-   
+   b_val = param_set(11) ! b-value
+
    !! Compute average summary statistics !!
    do kloop=1,K1
-     !15 call etams_sim_cat(lat_bg,lon_bg,param_set,t_sim,lat_sim,lon_sim,mag_sim,nev_sim)
-     15 call etasi_sim(lat_bg,lon_bg, nbg, param_set,t_sim,lat_sim,lon_sim,mag_sim,nev_sim)
+     15 call etasi_sim(lat_bg, lon_bg, param_set, t_sim, lat_sim, lon_sim, mag_sim, nev_sim)
      if(nev_sim.gt.n_sup2.or.nev_sim.lt.n_inf2)then
       nout = nout + 1 
       if(nout.gt.10*K1)then
@@ -443,7 +427,7 @@ program sbi_estimation
      endif
 
      call compute_norm_stats(t_sim, lat_sim, lon_sim, mag_sim, nev_sim, &
-                          bval, nc, thspace, &
+                          b_val, nc, thspace, &
                           nfore_sim, naft_sim, nmain, flag_main)
    
      ! Accumulate naft_norm across iterations
@@ -457,24 +441,29 @@ program sbi_estimation
    
    nevent_avg = nevent_sum / (K1*1.)
    !! Print the number of trials !!
-   print*, "Number out of bounds: ", nout, "Events per sim: ", int(nevent_avg)
-   flush(6)
+   !print*, "Number of simulations out of bounds: ", nout, "Events per sim: ", int(nevent_avg)
+   !flush(6)
    
    !! Cost function !!
    do iqmax=1,ncmain
-      do imfor=1,ncmagn
-        do itime=1,nctime
-          do ispace=1,ncspace
-           naft_sim(imfor,itime,ispace,iqmax) = naft_sum(imfor,itime,ispace,iqmax) / max(1,nmain_sims(iqmax))*1.0D0
+
+    if (nmain_sims(iqmax) == 0) then
+      flag_upd = 1
+      cost_fn = huge(cost_fn)
+      return
+    endif
+    
+    do imfor=1,ncmagn
+      do itime=1,nctime
+        do ispace=1,ncspace
+           naft_sim(imfor,itime,ispace,iqmax) = naft_sum(imfor,itime,ispace,iqmax) / real(nmain_sims(iqmax), kind=real64)
            if(true_stats_aft(imfor,itime,ispace,iqmax).ne.0.)then
                 cost_fn = cost_fn + ((naft_sim(imfor,itime,ispace,iqmax) / &
                         true_stats_aft(imfor,itime,ispace,iqmax)) - 1 )**2
-                !print*,cost_fn, imfor, itime, ispace, iqmax, naft_sim(imfor,itime,ispace,iqmax), &
-                !        true_stats_aft(imfor,itime,ispace,iqmax)
            endif
-          enddo
         enddo
       enddo
+    enddo
 
       ! do imfor=1,ncmagnf
       !   do itime=1,nctimef
@@ -542,13 +531,13 @@ program sbi_estimation
 
   end subroutine compute_norm_stats
 
-  subroutine branch_rt(K,alpha,bval,n_branch)
+  subroutine branch_rt(K,alpha,b_val,n_branch)
   implicit none
-  real(8), intent(in) :: K,alpha,bval
+  real(8), intent(in) :: K,alpha,b_val
   real(8), intent(out) :: n_branch
   real(8) :: beta,max_mag,min_mag
 
-  beta = bval * log(10.0)  ! Convert b-value to beta
+  beta = b_val * log(10.0)  ! Convert b-value to beta
   max_mag = msup
   min_mag = mc
   ! Calculate branching ratio Seif et al
@@ -629,12 +618,11 @@ program sbi_estimation
     r = min(AM * real(iy,8), RNMX)
   end function ran2
  
- subroutine update_block(block_indices, alim, paramin, name, itc, cost_fn1, paramout)
+ subroutine update_block(block_indices, alim, paramin, cost_fn1, paramout)
    implicit none
-   integer, intent(in) :: block_indices(:), itc
+   integer, intent(in) :: block_indices(:)
    real(8), intent(inout) :: cost_fn1
    real(8), intent(in) :: alim(num_param,num_param), paramin(num_param)
-   character(len=*), intent(in) :: name(num_param)
    real(8), intent(out) :: paramout(num_param)
    real(8) :: cost_fn, adum(num_param), param_set(num_param)
    integer :: i, ii, flag_upd, cnt
@@ -676,12 +664,6 @@ program sbi_estimation
    
    end do
    
-   !  do i=1, size(block_indices)
-   !       ii = block_indices(i)
-   !       write(61,*)ireal,itc,cost_fn,name(ii),param_set(ii),adum(ii),cost_fn1
-   !       call flush(61)  
-   !  end do
-
    ! accept/reject based on cost
    !ratio = cost_fn1 / cost_fn
    !u = rng_uniform()
@@ -689,11 +671,6 @@ program sbi_estimation
    if (cost_fn < cost_fn1) then
       cost_fn_old = cost_fn1
       cost_fn1 = cost_fn
-      !do i=1, size(block_indices)
-        !ii = block_indices(i)
-        !write(60,*)ireal,itc,cost_fn1,cost_fn_old,name(ii),param_set(ii),adum(ii)
-        !call flush(60)
-      !end do
    else
       do i=1, size(block_indices)
          ii = block_indices(i)

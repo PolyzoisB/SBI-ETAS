@@ -1,0 +1,7 @@
+ Learning rate:   0.10000000000000001     
+ Total time (years):    47.669998168945312      Auxilary window:    5.0000000000000000     
+ Branching Ratio:   0.70663809776306152       b-value (MLE):    1.0600000000000001     
+ Decision Boundary:    383.75333906111189       Bg_rate (1/sec/deg^2):    2.3309355816028786E-008
+ Nbg:         1096  Total events:         3736
+ Branching upper limit:   0.94999998807907104       Branching lower limit:   0.70663809776306152     
+ Cat size upper limit:    5230.0000000000000       Cat size lower limit:    2241.0000000000000     

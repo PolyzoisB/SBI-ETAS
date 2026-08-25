@@ -2,11 +2,12 @@ module global_params_mod
   !! FREE PARAMETERS !!
   implicit none
   
-  !! PRE-PROCESS STEP !!
-  
   !==============================
   ! File paths
   !==============================
+  
+  !! PRE-PROCESS STEP !!
+  
   character(len=*), parameter :: input_catalog = 'datasets/sc_1981_31_8_2023_all_conv.txt'
   character(len=*), parameter :: susc_index_file_name = 'results/susc_index_pavl_v4.txt'
   character(len=*), parameter :: output_cat = 'results/output_catalog_pavl_v4.txt'
@@ -26,6 +27,8 @@ module global_params_mod
   ! character(len=*), parameter :: bg_coords_1 = '/home/eugenio/Polyzois/etas/etas_simulation/datasets/cat_main_m2.dat'
   ! character(len=*), parameter :: bg_coords_2 = '/home/eugenio/Polyzois/etas/etas_simulation/datasets/cat_main_m4.dat'
 
+  !! INFERENCE-STEP !!
+
   !! Allocation variable !!
   integer, parameter :: max_events = 1500000
     
@@ -41,22 +44,22 @@ module global_params_mod
   !==============================
   ! Metric parameters (Baiesi–Paczuski)
   !==============================
-  real(8), parameter :: df   = 1.6d0     ! fractal dimension
-  real(8), parameter :: bval = 1.0d0     ! Gutenberg–Richter b-value
+  real(8), parameter :: df   = 1.6d0      ! fractal dimension
+  real(8), parameter :: bval = 1.06d0     ! Gutenberg–Richter b-value
     
   !! INFERENCE STEP !!
   !! Number of parameters to estimate
-  integer, parameter :: num_param = 11 
+  integer, parameter :: num_param = 12 
   !! Temporal scales !!
   real(8), parameter :: t_day_to_sec = 24*3600.0, t_year_to_sec = 365.25*24.*3600.0
   
   !! Number of classes for aftershock statistics
-  integer, parameter :: nctime=6, ncspace=5, ncmagn=2, ncmain=3
+  integer, parameter :: nctime=6, ncspace=5, ncmagn=1, ncmain=3
   !! Temporal intervals for aftershock statistics (days) !!
   real(8), parameter :: thtime(nctime) = (/0.25*t_day_to_sec, 0.5*t_day_to_sec, &
                         0.75*t_day_to_sec, 1.0*t_day_to_sec, 3.0*t_day_to_sec, 10.0*t_day_to_sec/) 
   !! Magnitude aftershock classes for aftershock statistics (left boundary) !!
-  real(8), parameter :: thml(ncmagn) = (/3.0, 3.5 /)           
+  real(8), parameter :: thml(ncmagn) = (/ 3.5 /)           
   !! Magnitude interval for aftershock statistics !!
   real(8), parameter :: step_mgn=0.5
   
@@ -67,19 +70,22 @@ module global_params_mod
   !! Spatial intervals for foreshock statistics (km) !!
   real(8), parameter :: thspacef(ncspacef) = (/10.0, 20.0, 40.0/)
   !! Magnitude foreshock classes for foreshock statistics (left boundary) !!
-  real(8), parameter :: thmlf(ncmagnf) = (/3.0/)
+  real(8), parameter :: thmlf(ncmagnf) = (/3.5/)
   !! Magnitude interval for foreshock statistics !!
-  real(8), parameter :: step_mgnf=1.0
+  real(8), parameter :: step_mgnf = 0.5
 
   !!!!!! SIMULATION BOUNDARIES !!!!!!
   !! lat/lon bounds for simulations (degrees) - for California, USA !!
+  real(8), parameter :: lat_min_0 = 32.0, lat_max_0 = 37.0, lon_min_0 = -121.0, lon_max_0 = -114.0
   !real(8), parameter :: lat_min = 32.0, lat_max = 37.0, lon_min = 114.0, lon_max = 121.0 
   real(8), parameter :: lat_min = 32.0, lat_max = 37.0, lon_min = -121.0, lon_max = -114.0 
   !! Temporal boundaries for simulations (years) !!
+  real(8), parameter :: t0 = 0.0
   !real(8), parameter :: tc = 5.0*365.25*24.*3600., tlast = 25.*365.25*24.*3600. 
   real(8), parameter :: tc = 5.0*t_year_to_sec, tlast = 42.67*t_year_to_sec+tc
   !! Magnitude boundaries for simulations !!
-  real(8), parameter :: mc = 3.0, msup = 7.5
+  real(8), parameter :: m0 = 3.5 
+  real(8), parameter :: mc = 3.5, msup = 7.5
 
   !!!!!!! OTHER PARAMETERS !!!!!!
   !! Magnitude boundaries for cluster analysis (approximation)

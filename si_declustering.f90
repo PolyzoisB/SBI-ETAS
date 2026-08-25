@@ -1,6 +1,7 @@
 module susceptibility_index_mod
   use global_params_mod, only: pthmin, pthmax, bin0, max_thr, max_si_points, df,&
-                               max_events, susc_index_file_name, output_cat, final_results
+                               max_events, susc_index_file_name, output_cat, final_results,&
+                               pr
   implicit none
   private
   public :: si_threshold
@@ -135,11 +136,10 @@ contains
 
    real(8) :: dr, dt, phi1, phi2, dphi, dlambda, a
    real(8), parameter :: dt0 = 1.0D0, dr0 = 0.01D0
-   real(8), parameter :: prad = 3.14159d0 / 180.0D0
 
    ! Haversine distance (km)
-   phi1 = x1 * prad;  phi2 = x2 * prad
-   dphi = phi2 - phi1;  dlambda = (y2 - y1) * prad
+   phi1 = x1 * pr;  phi2 = x2 * pr
+   dphi = phi2 - phi1;  dlambda = (y2 - y1) * pr
    a = sin(dphi/2.0D0)**2 + cos(phi1)*cos(phi2)*sin(dlambda/2.0D0)**2
    a = min(1.0D0, max(0.0D0, a))
    dr = 2.0D0 * asin(sqrt(a)) * 6370.0D0

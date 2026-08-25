@@ -96,12 +96,14 @@ program summary_stats
     do
       read(11, *, end=101) t, lt, ln, dep, mg
       if (mg < mc) cycle
-      i = i + 1
-      time(i) = t
-      lat(i)  = lt
-      lon(i)  = ln
-      mag(i)  = mg
-      mn_mag = mn_mag + mag(i)
+        if (lt <= lat_min .or. lt >= lat_max) cycle
+          if (ln <= lon_min .or. ln >= lon_max) cycle
+            i = i + 1
+            time(i) = t
+            lat(i)  = lt
+            lon(i)  = ln
+            mag(i)  = mg
+            mn_mag = mn_mag + mag(i)
     end do
     101 close(11)
     mn_mag = mn_mag / (ncat*1.)
